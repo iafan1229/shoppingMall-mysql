@@ -3,6 +3,22 @@ import prisma from "./lib/prisma";
 
 const app = express();
 
+// CORS 미들웨어 (프론트엔드 연결을 위해)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // JSON 바디 파싱 미들웨어
 app.use(express.json());
 
@@ -11,12 +27,98 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello, Shopping Mall API with MySQL & Prisma!");
 });
 
+// 상품 검색 API (페이지네이션, 정렬, 검색 포함)
+app.get("/api/products/search", async (req: Request, res: Response) => {
+  try {
+    const {
+      keyword = "",
+      page = "1",
+      limit = "10",
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      categoryId,
+    } = req.query;
+
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    // 검색 조건 구성
+    const where: any = {};
+
+    // 키워드 검색 (상품명과 설명에서 검색)
+    if (keyword && keyword !== "") {
+      where.OR = [
+        {
+          name: {
+            contains: keyword as string,
+            mode: "insensitive",
+          },
+        },
+        {
+          description: {
+            contains: keyword as string,
+            mode: "insensitive",
+          },
+        },
+      ];
+    }
+
+    // 카테고리 필터링
+    if (categoryId) {
+      where.categoryId = parseInt(categoryId as string);
+    }
+
+    // 정렬 옵션 설정
+    const orderBy: any = {};
+    if (sortBy === "price") {
+      orderBy.price = sortOrder;
+    } else if (sortBy === "name") {
+      orderBy.name = sortOrder;
+    } else {
+      orderBy.createdAt = sortOrder;
+    }
+
+    // 상품 조회 (페이지네이션 포함)
+    const [products, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+        },
+        orderBy,
+        skip,
+        take: limitNum,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limitNum);
+
+    res.json({
+      data: products,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        hasNext: pageNum < totalPages,
+        hasPrev: pageNum > 1,
+      },
+    });
+  } catch (error) {
+    console.error("Error searching products:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // 카테고리 관련 API
 app.get("/api/categories", async (req: Request, res: Response) => {
   try {
     const categories = await prisma.category.findMany({
       include: {
-        products: true,
+        _count: {
+          select: { products: true },
+        },
       },
     });
     res.json(categories);
