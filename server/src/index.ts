@@ -1,23 +1,16 @@
 import express, { Request, Response } from "express";
 import prisma from "./lib/prisma";
+import cors from "cors";
 
 const app = express();
 
-// CORS 미들웨어 (프론트엔드 연결을 위해)
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+// CORS 설정 추가
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+    credentials: true,
+  })
+);
 
 // JSON 바디 파싱 미들웨어
 app.use(express.json());
