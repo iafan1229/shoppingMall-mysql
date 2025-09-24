@@ -45,13 +45,11 @@ app.get("/api/products/search", async (req: Request, res: Response) => {
         {
           name: {
             contains: keyword as string,
-            mode: "insensitive",
           },
         },
         {
           description: {
             contains: keyword as string,
-            mode: "insensitive",
           },
         },
       ];
