@@ -4,6 +4,7 @@ import ProductGrid from "../organisms/ProductGrid";
 import Pagination from "../molecules/Pagination";
 import { useState, useEffect } from "react";
 import { useScrollPosition } from "../../hooks/useScrollPosition";
+import { useRouter } from "next/navigation";
 
 interface Category {
   id: number;
@@ -36,6 +37,7 @@ interface SearchResponse {
 }
 
 export default function MainPage() {
+  const router = useRouter();
   const { saveScrollPosition } = useScrollPosition("product-list");
 
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -105,6 +107,7 @@ export default function MainPage() {
   // 여기에 추가
   const handleProductClick = (productId: number) => {
     saveScrollPosition();
+    router.push(`/products/${productId}`);
     // 상품 상세 페이지 이동 로직 (필요시)
   };
   return (
@@ -134,7 +137,12 @@ export default function MainPage() {
       )}
 
       {/* 상품 그리드 */}
-      <ProductGrid products={products} loading={loading} />
+      {/* 상품 그리드 */}
+      <ProductGrid
+        products={products}
+        loading={loading}
+        onProductClick={handleProductClick} // 상품 클릭 핸들러 전달
+      />
 
       {/* 페이지네이션 */}
       {pagination && (

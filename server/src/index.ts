@@ -281,6 +281,167 @@ app.get("/api/orders/:userId", async (req: Request, res: Response) => {
   }
 });
 
+// server/src/index.ts에 추가할 API들
+
+// 개별 상품 상세 정보 API
+app.get("/api/products/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        category: true,
+      },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "상품을 찾을 수 없습니다." });
+    }
+
+    res.json(product);
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// 장바구니 아이템 삭제 API
+app.delete(
+  "/api/cart/:userId/:productId",
+  async (req: Request, res: Response) => {
+    try {
+      const { userId, productId } = req.params;
+
+      await prisma.cartItem.delete({
+        where: {
+          userId_productId: {
+            userId: parseInt(userId),
+            productId: parseInt(productId),
+          },
+        },
+      });
+
+      res.json({ message: "장바구니에서 삭제되었습니다." });
+    } catch (error) {
+      console.error("Error deleting cart item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+// 장바구니 수량 업데이트 API
+app.put("/api/cart", async (req: Request, res: Response) => {
+  try {
+    const { userId, productId, quantity } = req.body;
+
+    // 재고 확인
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(productId) },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "상품을 찾을 수 없습니다." });
+    }
+
+    if (product.stock < parseInt(quantity)) {
+      return res.status(400).json({
+        error: "재고가 부족합니다.",
+        availableStock: product.stock,
+      });
+    }
+
+    const cartItem = await prisma.cartItem.update({
+      where: {
+        userId_productId: {
+          userId: parseInt(userId),
+          productId: parseInt(productId),
+        },
+      },
+      data: {
+        quantity: parseInt(quantity),
+      },
+      include: {
+        product: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    res.json(cartItem);
+  } catch (error) {
+    console.error("Error updating cart:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// 기존 장바구니 추가 API 수정 (재고 확인 추가)
+app.post("/api/cart", async (req: Request, res: Response) => {
+  try {
+    const { userId, productId, quantity } = req.body;
+
+    // 재고 확인
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(productId) },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: "상품을 찾을 수 없습니다." });
+    }
+
+    // 현재 장바구니에 있는 수량 확인
+    const existingCartItem = await prisma.cartItem.findUnique({
+      where: {
+        userId_productId: {
+          userId: parseInt(userId),
+          productId: parseInt(productId),
+        },
+      },
+    });
+
+    const currentQuantity = existingCartItem ? existingCartItem.quantity : 0;
+    const totalQuantity = currentQuantity + parseInt(quantity);
+
+    if (product.stock < totalQuantity) {
+      return res.status(400).json({
+        error: "재고가 부족합니다.",
+        availableStock: product.stock,
+        currentInCart: currentQuantity,
+      });
+    }
+
+    const cartItem = await prisma.cartItem.upsert({
+      where: {
+        userId_productId: {
+          userId: parseInt(userId),
+          productId: parseInt(productId),
+        },
+      },
+      update: {
+        quantity: totalQuantity,
+      },
+      create: {
+        userId: parseInt(userId),
+        productId: parseInt(productId),
+        quantity: parseInt(quantity),
+      },
+      include: {
+        product: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    res.json(cartItem);
+  } catch (error) {
+    console.error("Error updating cart:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // 서버 종료 시 Prisma 연결 정리
 process.on("beforeExit", async () => {
   await prisma.$disconnect();
