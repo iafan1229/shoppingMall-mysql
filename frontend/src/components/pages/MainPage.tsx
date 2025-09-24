@@ -3,6 +3,7 @@ import FilterPanel from "../organisms/FilterPanel";
 import ProductGrid from "../organisms/ProductGrid";
 import Pagination from "../molecules/Pagination";
 import { useState, useEffect } from "react";
+import { useScrollPosition } from "../../hooks/useScrollPosition";
 
 interface Category {
   id: number;
@@ -35,6 +36,8 @@ interface SearchResponse {
 }
 
 export default function MainPage() {
+  const { saveScrollPosition } = useScrollPosition("product-list");
+
   const [searchKeyword, setSearchKeyword] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -67,7 +70,7 @@ export default function MainPage() {
       const params = new URLSearchParams({
         keyword: searchKeyword,
         page: page.toString(),
-        limit: "12",
+        limit: "10",
         sortBy,
         sortOrder,
         ...(selectedCategory && { categoryId: selectedCategory }),
@@ -99,6 +102,11 @@ export default function MainPage() {
     searchProducts(1);
   };
 
+  // 여기에 추가
+  const handleProductClick = (productId: number) => {
+    saveScrollPosition();
+    // 상품 상세 페이지 이동 로직 (필요시)
+  };
   return (
     <ShopLayout>
       {/* 검색 및 필터 영역 */}

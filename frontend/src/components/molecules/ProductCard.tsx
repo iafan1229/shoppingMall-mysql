@@ -17,15 +17,26 @@ interface Product {
 
 interface ProductCardProps {
   product: Product;
+  onProductClick?: (productId: number) => void;
 }
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({
+  product,
+  onProductClick,
+}: ProductCardProps) {
   const formatPrice = (price: string) => {
     return new Intl.NumberFormat("ko-KR").format(parseFloat(price));
   };
 
+  const handleClick = () => {
+    onProductClick?.(product.id);
+  };
+
   return (
-    <div className='bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden'>
+    <div
+      className='bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden cursor-pointer'
+      onClick={handleClick}
+    >
       {/* 상품 이미지 */}
       <div className='relative h-48 bg-gray-200'>
         {product.imageUrl ? (
